@@ -86,7 +86,22 @@
       border-radius: 10px;
       white-space: pre-line;
     }
+    .employee {
+  margin-bottom: 18px;
+  padding: 14px;
+  background: #e8f3ff;
+  border-radius: 10px;
+}
+
+#lineStatus {
+  margin-top: 5px;
+  color: #168347;
+  font-size: 14px;
+}
   </style>
+  <script charset="utf-8"
+    src="https://static.line-scdn.net/liff/edge/2/sdk.js">
+  </script>
 </head>
 
 <body>
@@ -97,7 +112,11 @@
       Take 1 photo before refill.<br>
       Enter empty slots from 0 to 22.
     </div>
-
+    <div class="employee">
+  <strong>Employee:</strong>
+  <span id="employeeName">Connecting to LINE...</span>
+  <div id="lineStatus"></div>
+    </div>
     <form id="stockForm">
       <label for="machine">Machine</label>
       <input
@@ -150,29 +169,77 @@
     <div id="result"></div>
   </main>
 
-  <script>
-    document.getElementById("stockForm").addEventListener("submit", function(event) {
+ <script>
+  const LIFF_ID = "2008874119-h7n9QcwL";
+  let lineProfile = null;
+
+  async function initializeLiff() {
+    const employeeName = document.getElementById("employeeName");
+    const lineStatus = document.getElementById("lineStatus");
+
+    try {
+      await liff.init({
+        liffId: LIFF_ID,
+        withLoginOnExternalBrowser: true
+      });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      lineProfile = await liff.getProfile();
+
+      employeeName.textContent = lineProfile.displayName;
+      lineStatus.textContent = "LINE connected";
+
+    } catch (error) {
+      console.error(error);
+
+      employeeName.textContent = "Connection failed";
+      lineStatus.textContent =
+        (error.code || "LIFF_ERROR") + ": " +
+        (error.message || "Unable to connect");
+    }
+  }
+
+  document
+    .getElementById("stockForm")
+    .addEventListener("submit", function(event) {
       event.preventDefault();
 
-      const machine = document.getElementById("machine").value.toUpperCase();
+      if (!lineProfile) {
+        alert("Please wait for LINE connection.");
+        return;
+      }
+
+      const machine =
+        document.getElementById("machine").value.toUpperCase();
+
       const shelves = ["A1", "A2", "A3", "A4", "A5"];
       let total = 0;
       let details = "";
 
       shelves.forEach(function(shelf) {
-        const amount = Number(document.getElementById(shelf).value);
+        const amount =
+          Number(document.getElementById(shelf).value);
+
         total += amount;
         details += shelf + ": " + amount + "\n";
       });
 
       const result = document.getElementById("result");
+
       result.style.display = "block";
       result.textContent =
+        "Employee: " + lineProfile.displayName + "\n" +
         "Machine: " + machine + "\n\n" +
         details +
         "\nTotal refill: " + total + " sachets\n\n" +
         "Test only — data has not been sent to n8n.";
     });
-  </script>
+
+  initializeLiff();
+</script>
 </body>
 </html>
