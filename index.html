@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KanghanDWash Stock Check</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #eef5ff;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 520px;
+      margin: auto;
+      background: white;
+      padding: 22px;
+      border-radius: 18px;
+      box-shadow: 0 5px 20px rgba(0,0,0,.12);
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #0759b8;
+      text-align: center;
+    }
+
+    .note {
+      padding: 12px;
+      background: #fff4cc;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin-top: 6px;
+      font-size: 20px;
+      border: 2px solid #c9d4e6;
+      border-radius: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .row label {
+      margin-top: 8px;
+      font-size: 20px;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      margin-top: 22px;
+      border: 0;
+      border-radius: 12px;
+      background: #06a85c;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #result {
+      display: none;
+      margin-top: 18px;
+      padding: 14px;
+      background: #e7f8ee;
+      border-radius: 10px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>Stock Check</h1>
+
+    <div class="note">
+      Take 1 photo before refill.<br>
+      Enter empty slots from 0 to 22.
+    </div>
+
+    <form id="stockForm">
+      <label for="machine">Machine</label>
+      <input
+        id="machine"
+        name="machine"
+        value="M1"
+        pattern="M[0-9]+"
+        required
+      >
+
+      <h2>Empty Slots</h2>
+
+      <div class="row">
+        <label for="A1">A1</label>
+        <input id="A1" type="number" min="0" max="22" required>
+      </div>
+
+      <div class="row">
+        <label for="A2">A2</label>
+        <input id="A2" type="number" min="0" max="22" required>
+      </div>
+
+      <div class="row">
+        <label for="A3">A3</label>
+        <input id="A3" type="number" min="0" max="22" required>
+      </div>
+
+      <div class="row">
+        <label for="A4">A4</label>
+        <input id="A4" type="number" min="0" max="22" required>
+      </div>
+
+      <div class="row">
+        <label for="A5">A5</label>
+        <input id="A5" type="number" min="0" max="22" required>
+      </div>
+
+      <label for="photo">Photo Before Refill</label>
+      <input
+        id="photo"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        required
+      >
+
+      <button type="submit">CHECK DATA</button>
+    </form>
+
+    <div id="result"></div>
+  </main>
+
+  <script>
+    document.getElementById("stockForm").addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      const machine = document.getElementById("machine").value.toUpperCase();
+      const shelves = ["A1", "A2", "A3", "A4", "A5"];
+      let total = 0;
+      let details = "";
+
+      shelves.forEach(function(shelf) {
+        const amount = Number(document.getElementById(shelf).value);
+        total += amount;
+        details += shelf + ": " + amount + "\n";
+      });
+
+      const result = document.getElementById("result");
+      result.style.display = "block";
+      result.textContent =
+        "Machine: " + machine + "\n\n" +
+        details +
+        "\nTotal refill: " + total + " sachets\n\n" +
+        "Test only — data has not been sent to n8n.";
+    });
+  </script>
+</body>
+</html>
