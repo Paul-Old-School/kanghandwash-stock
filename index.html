@@ -38,6 +38,13 @@
       margin-bottom: 20px;
     }
 
+    .test-mode {
+      display: block;
+      margin-top: 8px;
+      color: #9a3412;
+      font-weight: bold;
+    }
+
     label {
       display: block;
       margin-top: 15px;
@@ -78,6 +85,11 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      cursor: wait;
+      opacity: .65;
+    }
+
     #result {
       display: none;
       margin-top: 18px;
@@ -111,6 +123,7 @@
     <div class="note">
       Take 1 photo before refill.<br>
       Enter empty slots from 0 to 22.
+      <span class="test-mode">TEST MODE — No stock deduction.</span>
     </div>
     <div class="employee">
   <strong>Employee:</strong>
@@ -131,32 +144,33 @@
 
       <div class="row">
         <label for="A1">A1</label>
-        <input id="A1" type="number" min="0" max="22" required>
+        <input id="A1" name="A1" type="number" min="0" max="22" required>
       </div>
 
       <div class="row">
         <label for="A2">A2</label>
-        <input id="A2" type="number" min="0" max="22" required>
+        <input id="A2" name="A2" type="number" min="0" max="22" required>
       </div>
 
       <div class="row">
         <label for="A3">A3</label>
-        <input id="A3" type="number" min="0" max="22" required>
+        <input id="A3" name="A3" type="number" min="0" max="22" required>
       </div>
 
       <div class="row">
         <label for="A4">A4</label>
-        <input id="A4" type="number" min="0" max="22" required>
+        <input id="A4" name="A4" type="number" min="0" max="22" required>
       </div>
 
       <div class="row">
         <label for="A5">A5</label>
-        <input id="A5" type="number" min="0" max="22" required>
+        <input id="A5" name="A5" type="number" min="0" max="22" required>
       </div>
 
       <label for="photo">Photo Before Refill</label>
       <input
         id="photo"
+        name="photo"
         type="file"
         accept="image/*"
         capture="environment"
@@ -171,6 +185,8 @@
 
  <script>
   const LIFF_ID = "2008874119-h7n9QcwL";
+  const TEST_WEBHOOK_URL =
+    "https://schoolold.app.n8n.cloud/webhook-test/kanghandwash-stock-intake";
   let lineProfile = null;
 
   async function initializeLiff() {
@@ -205,7 +221,7 @@
 
   document
     .getElementById("stockForm")
-    .addEventListener("submit", function(event) {
+    .addEventListener("submit", async function(event) {
       event.preventDefault();
 
       if (!lineProfile) {
@@ -219,6 +235,9 @@
       const shelves = ["A1", "A2", "A3", "A4", "A5"];
       let total = 0;
       let details = "";
+      const formData = new FormData();
+
+      formData.append("machine", machine);
 
       shelves.forEach(function(shelf) {
         const amount =
@@ -226,17 +245,81 @@
 
         total += amount;
         details += shelf + ": " + amount + "\n";
+        formData.append(shelf, String(amount));
       });
 
       const result = document.getElementById("result");
+      const submitButton = event.currentTarget.querySelector(
+        'button[type="submit"]'
+      );
+      const photoFile = document.getElementById("photo").files[0];
+      const idToken = liff.getIDToken();
+
+      if (!idToken) {
+        alert("LINE login token is unavailable. Please reopen this page from LINE.");
+        return;
+      }
+
+      if (!photoFile) {
+        alert("Please take 1 photo before refill.");
+        return;
+      }
+
+      formData.append("idToken", idToken);
+      formData.append("photo", photoFile, photoFile.name);
 
       result.style.display = "block";
+      result.style.background = "#e7f8ee";
       result.textContent =
         "Employee: " + lineProfile.displayName + "\n" +
         "Machine: " + machine + "\n\n" +
         details +
         "\nTotal refill: " + total + " sachets\n\n" +
-        "Test only — data has not been sent to n8n.";
+        "Sending test data to n8n...";
+
+      submitButton.disabled = true;
+      submitButton.textContent = "SENDING...";
+
+      try {
+        const response = await fetch(TEST_WEBHOOK_URL, {
+          method: "POST",
+          body: formData
+        });
+
+        const responseText = await response.text();
+        let responseData = {};
+        try {
+          responseData = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          responseData = { message: responseText };
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            responseData.message ||
+            "n8n returned HTTP " + response.status
+          );
+        }
+
+        result.style.background = "#e7f8ee";
+        result.textContent =
+          "Employee: " + lineProfile.displayName + "\n" +
+          "Machine: " + machine + "\n\n" +
+          details +
+          "\nTotal refill: " + total + " sachets\n\n" +
+          "Test saved: " + (responseData.recordId || "OK") + "\n" +
+          "No stock was deducted.";
+      } catch (error) {
+        console.error(error);
+        result.style.background = "#fee2e2";
+        result.textContent =
+          "Send failed: " + (error.message || "Unknown error") + "\n\n" +
+          "Before testing, open the n8n Webhook node and select " +
+          "Listen for test event.";
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "CHECK DATA";
+      }
     });
 
   initializeLiff();
