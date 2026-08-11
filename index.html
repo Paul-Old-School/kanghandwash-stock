@@ -185,9 +185,59 @@
 
  <script>
   const LIFF_ID = "2008874119-h7n9QcwL";
+  const LIFF_ENDPOINT_URL =
+    "https://paul-old-school.github.io/kanghandwash-stock/";
   const TEST_WEBHOOK_URL =
     "https://schoolold.app.n8n.cloud/webhook-test/kanghandwash-stock-intake";
+  const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
   let lineProfile = null;
+
+  function ensureFreshLineIdToken() {
+    const employeeName = document.getElementById("employeeName");
+    const lineStatus = document.getElementById("lineStatus");
+    const submitButton = document.querySelector(
+      '#stockForm button[type="submit"]'
+    );
+
+    let decodedToken = null;
+    try {
+      decodedToken = liff.getDecodedIDToken();
+    } catch (error) {
+      console.error("Unable to decode LINE ID Token.", error);
+    }
+
+    const expiresAt = Number(decodedToken && decodedToken.exp) * 1000;
+    const tokenIsFresh =
+      Number.isFinite(expiresAt) &&
+      expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS;
+
+    if (tokenIsFresh) {
+      return true;
+    }
+
+    lineProfile = null;
+    submitButton.disabled = true;
+    employeeName.textContent = "LINE session expired";
+
+    if (liff.isInClient()) {
+      lineStatus.textContent =
+        "Close this page and reopen it from LINE to sign in again.";
+      return false;
+    }
+
+    lineStatus.textContent = "Signing in to LINE again...";
+
+    try {
+      liff.logout();
+      liff.login({ redirectUri: LIFF_ENDPOINT_URL });
+    } catch (error) {
+      console.error("Unable to refresh LINE login.", error);
+      lineStatus.textContent =
+        "Unable to refresh LINE login. Close this page and open the LIFF link again.";
+    }
+
+    return false;
+  }
 
   async function initializeLiff() {
     const employeeName = document.getElementById("employeeName");
@@ -200,7 +250,11 @@
       });
 
       if (!liff.isLoggedIn()) {
-        liff.login();
+        liff.login({ redirectUri: LIFF_ENDPOINT_URL });
+        return;
+      }
+
+      if (!ensureFreshLineIdToken()) {
         return;
       }
 
@@ -226,6 +280,10 @@
 
       if (!lineProfile) {
         alert("Please wait for LINE connection.");
+        return;
+      }
+
+      if (!ensureFreshLineIdToken()) {
         return;
       }
 
@@ -301,21 +359,28 @@
           );
         }
 
+        if (responseData.success !== true || !responseData.recordId) {
+          throw new Error(
+            responseData.message ||
+            "n8n did not complete the workflow. Check the latest execution."
+          );
+        }
+
         result.style.background = "#e7f8ee";
         result.textContent =
           "Employee: " + lineProfile.displayName + "\n" +
           "Machine: " + machine + "\n\n" +
           details +
           "\nTotal refill: " + total + " sachets\n\n" +
-          "Test saved: " + (responseData.recordId || "OK") + "\n" +
+          "Test saved: " + responseData.recordId + "\n" +
           "No stock was deducted.";
       } catch (error) {
         console.error(error);
         result.style.background = "#fee2e2";
         result.textContent =
           "Send failed: " + (error.message || "Unknown error") + "\n\n" +
-          "Before testing, open the n8n Webhook node and select " +
-          "Listen for test event.";
+          "Open n8n Executions to check which node stopped. " +
+          "For test mode, the Webhook must also be listening.";
       } finally {
         submitButton.disabled = false;
         submitButton.textContent = "CHECK DATA";
